@@ -7,27 +7,27 @@ from io import StringIO
 import os
 from dotenv import load_dotenv
 
-# Carica le variabili d'ambiente dal file .env
+# Load environment variables from .env file
 load_dotenv()
 
-# Ottieni la connection string dal file .env
+# Get the connection string from the .env file
 conn_string = os.getenv('DATABASE_PATH')
 
-# Funzioni di utilità
+# Utility functions
 def create_slug(title):
-    """Crea uno slug dal titolo"""
-    # Converti in minuscolo e sostituisci spazi con trattini
+    """Create a slug from the title"""
+    # Convert to lowercase and replace spaces with hyphens
     slug = title.lower()
-    # Rimuovi caratteri speciali
+    # Remove special characters
     slug = re.sub(r'[^a-z0-9\s-]', '', slug)
-    # Sostituisci spazi con trattini
+    # Replace spaces with hyphens
     slug = re.sub(r'\s+', '-', slug)
     return slug
 
 def init_db():
-    """Inizializza il database se non esiste"""
+    """Initialize the database if it doesn't exist"""
     if not conn_string:
-        st.error("Percorso del database non configurato. Controlla il file .env")
+        st.error("Database path not configured. Check the .env file")
         st.stop()
         
     conn = sqlite3.connect(conn_string)
@@ -46,16 +46,16 @@ def init_db():
     conn.close()
 
 def get_articles():
-    """Recupera tutti gli articoli dal database"""
+    """Retrieve all articles from the database"""
     conn = sqlite3.connect(conn_string)
     df = pd.read_sql('SELECT * FROM articoli ORDER BY data DESC', conn)
     conn.close()
     return df
 
 def add_article(titolo, tags, contenuto):
-    """Aggiunge un nuovo articolo al database"""
+    """Add a new article to the database"""
     slug = create_slug(titolo)
-    data_oggi = date.today().strftime('%Y-%m-%d')
+    today_date = date.today().strftime('%Y-%m-%d')
     
     conn = sqlite3.connect(conn_string)
     c = conn.cursor()
@@ -63,7 +63,7 @@ def add_article(titolo, tags, contenuto):
         c.execute('''
         INSERT INTO articoli (titolo, slug, data, tags, contenuto)
         VALUES (?, ?, ?, ?, ?)
-        ''', (titolo, slug, data_oggi, tags, contenuto))
+        ''', (titolo, slug, today_date, tags, contenuto))
         conn.commit()
         result = True
     except sqlite3.IntegrityError:
@@ -72,10 +72,10 @@ def add_article(titolo, tags, contenuto):
     return result
 
 def update_article(id, titolo, tags, contenuto):
-    """Aggiorna un articolo esistente"""
+    """Update an existing article"""
     slug = create_slug(titolo)
     
-    # Nota: non aggiorniamo il campo 'data' per mantenere la data di pubblicazione originale
+    # Note: we don't update the 'data' field to maintain the original publication date
     conn = sqlite3.connect(conn_string)
     c = conn.cursor()
     try:
@@ -92,7 +92,7 @@ def update_article(id, titolo, tags, contenuto):
     return result
 
 def get_article_by_id(id):
-    """Recupera un articolo specifico dal database"""
+    """Retrieve a specific article from the database"""
     conn = sqlite3.connect(conn_string)
     c = conn.cursor()
     c.execute('SELECT * FROM articoli WHERE id=?', (id,))
@@ -100,58 +100,58 @@ def get_article_by_id(id):
     conn.close()
     
     if result:
-        # Creiamo un dizionario dai risultati
+        # Create a dictionary from the results
         columns = ['id', 'titolo', 'slug', 'data', 'tags', 'contenuto']
         article = {columns[i]: result[i] for i in range(len(columns))}
         return article
     else:
         return None
 
-# Impostazioni della pagina
+# Page settings
 st.set_page_config(
     page_title="Blog CMS",
     page_icon="📝",
     layout="wide"
 )
 
-# Verifica se il file .env è configurato correttamente
+# Check if the .env file is configured correctly
 if not conn_string:
-    st.error("⚠️ Configurazione mancante: Percorso del database non trovato nel file .env")
-    st.info("Crea un file .env nella stessa directory di questo script con il seguente contenuto:")
-    st.code("DATABASE_PATH=/percorso/al/tuo/database.db")
+    st.error("⚠️ Missing configuration: Database path not found in .env file")
+    st.info("Create an .env file in the same directory as this script with the following content:")
+    st.code("DATABASE_PATH=/path/to/your/database.db")
     st.stop()
 
-# Inizializza il database
+# Initialize the database
 init_db()
 
-# Inizializza le variabili di sessione se non esistono
+# Initialize session variables if they don't exist
 if 'page' not in st.session_state:
-    st.session_state['page'] = 'lista'
+    st.session_state['page'] = 'list'
 
-# Funzione per determinare quale pagina visualizzare
+# Function to determine which page to display
 def display_page():
-    # Se siamo in modalità modifica, mostro la pagina di modifica
+    # If we're in edit mode, show the edit page
     if 'edit_id' in st.session_state:
         display_edit_page()
-    # Altrimenti, mostro la pagina selezionata dalla sidebar
-    elif st.session_state['page'] == 'lista':
+    # Otherwise, show the page selected from the sidebar
+    elif st.session_state['page'] == 'list':
         display_list_page()
-    elif st.session_state['page'] == 'nuovo':
+    elif st.session_state['page'] == 'new':
         display_new_page()
 
-# Pagina: Lista Articoli
+# Page: Article List
 def display_list_page():
-    st.title("Gestione Articoli")
+    st.title("Article Management")
     
-    # Recupera gli articoli
+    # Retrieve articles
     df = get_articles()
     
     if not df.empty:
-        # Mostra la tabella degli articoli
-        st.write(f"Totale articoli: {len(df)}")
+        # Show the table of articles
+        st.write(f"Total articles: {len(df)}")
         
-        # Usiamo una casella di ricerca per filtrare gli articoli
-        search = st.text_input("Cerca articoli per titolo o tag:")
+        # Use a search box to filter articles
+        search = st.text_input("Search articles by title or tag:")
         
         if search:
             filtered_df = df[df['titolo'].str.contains(search, case=False) | 
@@ -159,10 +159,10 @@ def display_list_page():
         else:
             filtered_df = df
         
-        # Mostra gli articoli in un layout a griglia con 3 articoli per riga
+        # Show articles in a grid layout with 3 articles per row
         col_count = 3
         
-        # Aggiungiamo un po' di spazio sopra la griglia
+        # Add some space above the grid
         st.write("")
         
         for i in range(0, len(filtered_df), col_count):
@@ -171,136 +171,136 @@ def display_list_page():
                 if i + j < len(filtered_df):
                     article = filtered_df.iloc[i + j]
                     with cols[j]:
-                        # Aggiungiamo un contenitore con bordo e padding
+                        # Add a container with border and padding
                         with st.container():
                             st.subheader(article['titolo'])
-                            st.caption(f"Data: {article['data']}")
+                            st.caption(f"Date: {article['data']}")
                             st.caption(f"Tags: {article['tags']}")
                             
-                            # Spazio aggiuntivo prima del pulsante
+                            # Additional space before the button
                             st.write("")
                             
-                            # Solo bottone modifica
-                            if st.button("✏️ Modifica", key=f"edit_{article['id']}"):
+                            # Only edit button
+                            if st.button("✏️ Edit", key=f"edit_{article['id']}"):
                                 st.session_state['edit_id'] = int(article['id'])
                                 st.rerun()
                             
-                            # Spazio dopo ogni articolo
+                            # Space after each article
                             st.write("")
             
-            # Spazio tra le righe
+            # Space between rows
             st.write("")
     else:
-        st.info("Nessun articolo presente nel database. Crea un nuovo articolo dal menu laterale.")
+        st.info("No articles in the database. Create a new article from the side menu.")
 
-# Pagina: Nuovo Articolo
+# Page: New Article
 def display_new_page():
-    st.title("Nuovo Articolo")
+    st.title("New Article")
     
-    # Variabili per memorizzare i valori del form
+    # Variables to store form values
     form_submitted = False
     titolo = ""
     tags = ""
     contenuto = ""
     
-    # Form per l'articolo
+    # Form for the article
     with st.form("new_article_form"):
-        titolo = st.text_input("Titolo")
+        titolo = st.text_input("Title")
         
         if titolo:
             st.caption(f"Slug: {create_slug(titolo)}")
         
-        tags = st.text_input("Tags (separati da virgola)")
-        contenuto = st.text_area("Contenuto dell'articolo", height=400)
+        tags = st.text_input("Tags (comma separated)")
+        contenuto = st.text_area("Article content", height=400)
         
-        # Il pulsante di submit restituisce True quando viene premuto
-        form_submitted = st.form_submit_button("Salva Articolo")
+        # The submit button returns True when pressed
+        form_submitted = st.form_submit_button("Save Article")
     
-    # Logica di salvataggio FUORI dal form
+    # Save logic OUTSIDE the form
     if form_submitted:
         if not titolo:
-            st.error("Il titolo non può essere vuoto!")
+            st.error("Title cannot be empty!")
         else:
             if add_article(titolo, tags, contenuto):
-                st.success("Articolo creato con successo!")
-                # Cambio pagina e forzo il rerun
-                st.session_state['page'] = 'lista'
+                st.success("Article created successfully!")
+                # Change page and force rerun
+                st.session_state['page'] = 'list'
                 st.rerun()
             else:
-                st.error("Errore durante la creazione dell'articolo. Slug duplicato?")
+                st.error("Error creating the article. Duplicate slug?")
 
-# Pagina: Modifica Articolo
+# Page: Edit Article
 def display_edit_page():
-    st.title("Modifica Articolo")
+    st.title("Edit Article")
     
-    # Recupera l'articolo dal database
+    # Retrieve the article from the database
     article_id = st.session_state['edit_id']
     article = get_article_by_id(article_id)
     
     if not article:
-        st.error(f"Articolo con ID {article_id} non trovato nel database.")
-        if st.button("Torna alla lista"):
+        st.error(f"Article with ID {article_id} not found in the database.")
+        if st.button("Back to list"):
             st.session_state.pop('edit_id', None)
             st.rerun()
     else:
-        # Variabili per memorizzare i valori del form
+        # Variables to store form values
         form_submitted = False
         titolo = article['titolo']
         tags = article['tags'] if article['tags'] else ""
         contenuto = article['contenuto'] if article['contenuto'] else ""
         
-        # Form per modificare l'articolo
+        # Form to edit the article
         with st.form("edit_article_form"):
-            titolo = st.text_input("Titolo", value=titolo)
+            titolo = st.text_input("Title", value=titolo)
             
             if titolo:
                 st.caption(f"Slug: {create_slug(titolo)}")
             
-            tags = st.text_input("Tags (separati da virgola)", value=tags)
-            contenuto = st.text_area("Contenuto dell'articolo", value=contenuto, height=400)
+            tags = st.text_input("Tags (comma separated)", value=tags)
+            contenuto = st.text_area("Article content", value=contenuto, height=400)
             
-            form_submitted = st.form_submit_button("Salva Articolo")
+            form_submitted = st.form_submit_button("Save Article")
         
-        # Logica spostata fuori dal form
+        # Logic moved outside the form
         if form_submitted:
             if not titolo:
-                st.error("Il titolo non può essere vuoto!")
+                st.error("Title cannot be empty!")
             else:
                 if update_article(article_id, titolo, tags, contenuto):
-                    st.success("Articolo aggiornato con successo!")
-                    # Rimuovi l'ID di modifica e torna alla lista automaticamente
+                    st.success("Article updated successfully!")
+                    # Remove the edit ID and return to the list automatically
                     st.session_state.pop('edit_id', None)
-                    st.session_state['page'] = 'lista'
+                    st.session_state['page'] = 'list'
                     st.rerun()
                 else:
-                    st.error("Errore durante l'aggiornamento dell'articolo. Slug duplicato?")
+                    st.error("Error updating the article. Duplicate slug?")
         
-        # Bottone per tornare indietro
-        if st.button("Torna alla lista"):
+        # Button to go back
+        if st.button("Back to list"):
             st.session_state.pop('edit_id', None)
             st.rerun()
 
-# Sidebar per la navigazione
+# Sidebar for navigation
 st.sidebar.title("Blog CMS")
 
-# Selezione pagina nella sidebar (solo se non stiamo modificando)
+# Page selection in the sidebar (only if we're not editing)
 if 'edit_id' not in st.session_state:
-    page_options = ["Lista Articoli", "Nuovo Articolo"]
-    selected_page = st.sidebar.radio("Navigazione", page_options)
+    page_options = ["Article List", "New Article"]
+    selected_page = st.sidebar.radio("Navigation", page_options)
     
-    # Mappa la selezione alla chiave della pagina
-    if selected_page == "Lista Articoli":
-        st.session_state['page'] = 'lista'
-    elif selected_page == "Nuovo Articolo":
-        st.session_state['page'] = 'nuovo'
+    # Map the selection to the page key
+    if selected_page == "Article List":
+        st.session_state['page'] = 'list'
+    elif selected_page == "New Article":
+        st.session_state['page'] = 'new'
 else:
-    # Se siamo in modalità modifica, evidenziamo che stiamo modificando
-    st.sidebar.info("✏️ Modalità modifica articolo")
+    # If we're in edit mode, highlight that we're editing
+    st.sidebar.info("✏️ Article edit mode")
     
-    # Pulsante per tornare alla lista dalla sidebar
-    if st.sidebar.button("Torna alla lista degli articoli"):
+    # Button to return to the list from the sidebar
+    if st.sidebar.button("Back to article list"):
         st.session_state.pop('edit_id', None)
         st.rerun()
 
-# Mostra la pagina corrente
+# Show the current page
 display_page()
